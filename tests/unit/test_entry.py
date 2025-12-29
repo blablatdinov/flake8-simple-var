@@ -327,6 +327,79 @@ class TestVariableNameVisitor:
 
         assert len(visitor.errors) == 0
 
+    def test_global_variables_code(self) -> None:
+        code = """
+user_name = "john"
+"""
+        tree = ast.parse(code)
+        visitor = VariableNameVisitor()
+        visitor.visit(tree)
+
+        assert len(visitor.errors) == 1
+        assert any('SVN100' in str(error) for error in visitor.errors)
+        assert any('user_name' in str(error) for error in visitor.errors)
+
+    def test_local_variables_in_function(self) -> None:
+        """Test that local variables in functions use SVN100."""
+        code = """
+def test_function():
+    local_var = 42
+    return local_var
+"""
+        tree = ast.parse(code)
+        visitor = VariableNameVisitor()
+        visitor.visit(tree)
+
+        assert len(visitor.errors) == 1
+        assert any('SVN100' in str(error) for error in visitor.errors)
+        assert any('local_var' in str(error) for error in visitor.errors)
+
+    def test_local_variables_in_class(self) -> None:
+        """Test that local variables in classes use SVN100."""
+        code = """
+class TestClass:
+    def __init__(self):
+        instance_var = 42
+        self.value = instance_var
+"""
+        tree = ast.parse(code)
+        visitor = VariableNameVisitor()
+        visitor.visit(tree)
+
+        assert len(visitor.errors) == 1
+        assert any('SVN100' in str(error) for error in visitor.errors)
+        assert any('instance_var' in str(error) for error in visitor.errors)
+
+    def test_mixed_global_and_local_variables(self) -> None:
+        """Test that global and local variables use different error codes."""
+        code = """
+global_var = "global"
+user_name = "global_user"
+
+def test_function():
+    local_var = "local"
+    user_name = "local_user"
+    return local_var + user_name
+"""
+        tree = ast.parse(code)
+        visitor = VariableNameVisitor()
+        visitor.visit(tree)
+
+        # Should have 4 errors: 2 global (SVN500) + 2 local (SVN100)
+        assert len(visitor.errors) == 4
+        
+        # Check global variables
+        global_errors = [e for e in visitor.errors if 'SVN500' in str(e)]
+        assert len(global_errors) == 2
+        assert any('global_var' in str(error) for error in global_errors)
+        assert any('user_name' in str(error) for error in global_errors)
+        
+        # Check local variables
+        local_errors = [e for e in visitor.errors if 'SVN100' in str(e)]
+        assert len(local_errors) == 2
+        assert any('local_var' in str(error) for error in local_errors)
+        assert any('user_name' in str(error) for error in local_errors)
+
 
 class TestPlugin:
     """Test Plugin class."""

@@ -31,7 +31,7 @@ SVN = "flake8_simple_var.entry:Plugin"
 
 [tool.poetry.group.test.dependencies]
 mypy = "1.17.1"
-pytest = "8.4.1"
+pytest = "8.4.2"
 pytest-cov = "6.2.1"
 pytest-randomly = "3.16.0"
 astpretty = "3.0.0"

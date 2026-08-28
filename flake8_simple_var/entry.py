@@ -36,6 +36,8 @@ class VariableNameVisitor(ast.NodeVisitor):
     def __init__(self) -> None:
         """Initialize visitor."""
         self.errors: list[tuple[int, int, str, type]] = []
+        self._in_function = False
+        self._in_class = False
 
     def _check_variable_name(self, node: ast.AST, name: str, error_code: str) -> None:
         """Check if variable name contains only one word."""
@@ -60,14 +62,21 @@ class VariableNameVisitor(ast.NodeVisitor):
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
         """Visit annotated assignments."""
         if isinstance(node.target, ast.Name):
-            self._check_variable_name(node.target, node.target.id, 'SVN100')
+            # Check if this is a global variable (top-level assignment)
+            if not self._in_function and not self._in_class:
+                self._check_variable_name(node.target, node.target.id, 'SVN500')
+            else:
+                self._check_variable_name(node.target, node.target.id, 'SVN100')
         self.generic_visit(node)
 
     def visit_Assign(self, node: ast.Assign) -> None:
         """Visit assignments."""
         for target in node.targets:
             if isinstance(target, ast.Name):
-                self._check_variable_name(target, target.id, 'SVN100')
+                if not self._in_function and not self._in_class:
+                    self._check_variable_name(target, target.id, 'SVN500')
+                else:
+                    self._check_variable_name(target, target.id, 'SVN100')
         self.generic_visit(node)
 
     def visit_For(self, node: ast.For) -> None:
@@ -93,3 +102,24 @@ class VariableNameVisitor(ast.NodeVisitor):
         if node.optional_vars and isinstance(node.optional_vars, ast.Name):
             self._check_variable_name(node.optional_vars, node.optional_vars.id, 'SVN400')
         self.generic_visit(node)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        """Visit function definitions."""
+        old_in_function = self._in_function
+        self._in_function = True
+        self.generic_visit(node)
+        self._in_function = old_in_function
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        """Visit async function definitions."""
+        old_in_function = self._in_function
+        self._in_function = True
+        self.generic_visit(node)
+        self._in_function = old_in_function
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        """Visit class definitions."""
+        old_in_class = self._in_class
+        self._in_class = True
+        self.generic_visit(node)
+        self._in_class = old_in_class
